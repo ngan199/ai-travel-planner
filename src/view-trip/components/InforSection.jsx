@@ -1,15 +1,19 @@
 import { Button } from '@/components/ui/button';
 import React, { useEffect, useState } from 'react'
 import { IoIosSend } from "react-icons/io";
-import { GetImageUrl } from '../../service/sharedFunctions'
+import { GenerateImageUrl } from '../../service/sharedFunctions'
 
-function InforSection({trip }) {
+function InforSection({trip}) {
   const [locationUrl, setLocaionUrl] = useState('')
   const place = trip?.userSelection?.location?.label
 
   useEffect(() => {
-    GetImageUrl(place, import.meta.env.VITE_UNSPLASH_API_KEY, setLocaionUrl)
+    place&&GetImageUrl()
   }, [place])
+
+  const GetImageUrl = () => {
+    GenerateImageUrl(place, setLocaionUrl)
+  }
 
   return (
     <div>
