@@ -1,10 +1,13 @@
+import { Toaster } from '@/components/ui/sonner';
 import axios from 'axios';
-export const GetImageUrl = (name, accessToken, setUrl) => {
+
+const accessToken = import.meta.env.VITE_UNSPLASH_API_KEY
+export const GenerateImageUrl = (name, setUrl) => {
   axios.get(`https://api.unsplash.com/search/photos?query=${name}&client_id=${accessToken}`
   ).then((res) => {
-    const imageUrls = res.data.results?.map((item) => item?.urls.full)
-    setUrl(imageUrls?.[0])
+    const imageUrl = res.data.results?.[0]?.urls?.full
+    setUrl(imageUrl)
   }).catch(function (error) {
-    console.log(error.toJSON())
+    Toaster(error)
   })
 }
