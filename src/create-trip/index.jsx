@@ -1,13 +1,34 @@
 import { Input } from '@/components/ui/input'
 import { SearchBox } from '@mapbox/search-js-react'
 import React, { useRef, useState, useEffect } from 'react'
-import { AI_PROMPT, SelectBudgetOptions, SelectTravelesList } from '../constants/options';
+import { AI_PROMPT, SelectBudgetOptions, SelectTravelesList, FormatPlace } from '../constants/options';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { chatSession } from '@/service/AIModal';
+import { FcGoogle } from "react-icons/fc";
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { useGoogleLogin } from '@react-oauth/google';
+import axios from 'axios';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/service/firebaseConfig';
+import { useNavigate } from 'react-router-dom';
+
 
 function index() {
   const [place, setPlace] = useState()
   const [formData, setFormData] = useState([])
+  const [openDialog, setOpenDialog] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [urls, setUrls] = useState([])
+  const navigate = useNavigate()
 
   const handleInputChange = (name, value) => {
     if(name == 'noOfDays' && value > 5){
@@ -25,18 +46,66 @@ function index() {
     console.log('formData', formData)
   }, [formData])
 
-  const OnGenerateTrip = () => {
+  const login = useGoogleLogin({
+    onSuccess: (codeResp) => {
+      GetUserProfile(codeResp)
+    },
+    onError: (error) => console.log('error', error)
+  })
+
+  const OnGenerateTrip = async() => {
+    const user = localStorage.getItem('user')
+    if(!user){
+      setOpenDialog(true)
+      return
+    }
+
     if(formData?.noOfDays > 5 || !formData?.location || !formData?.budget || !formData?.traveler || !formData.noOfDays){
       toast('Please fill all details')
       return
     }
     
+    setLoading(true)
     const FINAL_PROMPT = AI_PROMPT
     .replace('{location}', formData?.location?.label)
     .replace('{totalDays}', formData?.noOfDays)
     .replace('{traveler}', formData?.traveler)
     .replace('{budget}', formData?.budget)
     .replace('{totalDays}', formData?.noOfDays)
+
+    const result = await chatSession.sendMessage(FINAL_PROMPT)
+    setLoading(false)
+    SaveAiTrip(result?.response?.text())
+  }
+
+  const SaveAiTrip = async(TripData) => {
+    setLoading(true)
+    const user = JSON.parse(localStorage.getItem('user'))
+    const docId = Date.now().toString()
+
+    await setDoc(doc (db, "AiTrips", docId), {
+      userSelection: formData,
+      tripData: JSON.parse(TripData),
+      userEmail: user?.email,
+      id: docId
+     });
+     setLoading(false)
+     navigate(`/view-trip/${docId}`)
+  }
+
+  const GetUserProfile = (tokenInfo) => {
+    axios.get(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokenInfo?.access_token}`,{
+      headers:{
+        Authorization: `Bearer ${tokenInfo?.access_token}`,
+        Accept: 'Application/json'
+      }
+    }).then((res) => {
+      setOpenDialog(false)
+      localStorage.setItem('user', JSON.stringify(res.data))
+      OnGenerateTrip()
+    }).catch(function (error) {
+      console.log(error.toJSON());
+    });
   }
 
   return (
@@ -50,12 +119,11 @@ function index() {
           <h2 className='text-xl my-3 font-medium'>What is your destination of choice?</h2>
           <SearchBox 
           accessToken={import.meta.env.VITE_MAPBOX_KEY}
-          //options={{language: 'en', country: 'US'}} 
+          options={{types: ['country', 'region', 'city', 'district', 'place' ]}} 
           value={place}
-          //onChange={(v) => console.log('change', v)}
           onRetrieve={(val) => {
-            setPlace(val.features[0].properties.full_address)
-            handleInputChange('location', val)
+            setPlace(FormatPlace(val).value.description)
+            handleInputChange('location', FormatPlace(val))
           }}
           />
         </div>
@@ -99,8 +167,31 @@ function index() {
       </div>
 
       <div className='my-10 justify-end flex'>
-        <Button onClick={OnGenerateTrip}>Generate trip</Button>
+        <Button disable={loading} onClick={OnGenerateTrip}>
+          {loading ? <AiOutlineLoading3Quarters className='h-7 w-7 animate-spin' /> : 'Generate trip'}
+        </Button> 
       </div>
+
+      <Dialog open={openDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogDescription>
+              <img src='/logo.svg' />
+              <h2 className='font-bold-text-lg mt-7'>Sign In With Google</h2>
+              <p>Sign In to the App with Google authentication securely</p>
+              <Button 
+                disabled={loading}
+                onClick={login} 
+                varient='outline' 
+                className='w-full mt-5 flex gap-4 items-center'
+              >
+                <FcGoogle className='h-7 w-7 ' />
+                Sign In  With Google
+              </Button>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
