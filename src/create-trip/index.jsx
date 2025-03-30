@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input'
 import { SearchBox } from '@mapbox/search-js-react'
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { AI_PROMPT, SelectBudgetOptions, SelectTravelesList, FormatPlace } from '../constants/options';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -27,7 +27,6 @@ function index() {
   const [formData, setFormData] = useState([])
   const [openDialog, setOpenDialog] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [urls, setUrls] = useState([])
   const navigate = useNavigate()
 
   const handleInputChange = (name, value) => {
