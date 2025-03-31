@@ -25,7 +25,6 @@ function MyTrips() {
     const querySnapshot = await getDocs(q)
 
     querySnapshot.forEach((doc) => {
-      console.log(doc.id, " => ", doc.data())
       setUserTrips((prev) => [...prev, doc.data()])
     })
   }

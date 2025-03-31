@@ -17,15 +17,16 @@ import {
 } from "@/components/ui/dialog"
 import { FcGoogle } from "react-icons/fc";
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 
 function Header() {
   const user = JSON.parse(localStorage.getItem('user'))
   const [openDialog, setOpenDialog] = useState(false)
+  const navigate = useNavigate()
 
   const login = useGoogleLogin({
     onSuccess: (codeResp) => {
-      console.log('codeResp', codeResp)
       GetUserProfile(codeResp)
     },
     onError: (error) => console.log('error', error)
@@ -38,10 +39,9 @@ function Header() {
         Accept: 'Application/json'
       }
     }).then((res) => {
-      console.log('here???')
       setOpenDialog(false)
       localStorage.setItem('user', JSON.stringify(res.data))
-      window.location.reload()
+      navigate('/')
     }).catch(function (error) {
       console.log("erorr??", error.toJSON());
     });
@@ -49,7 +49,7 @@ function Header() {
 
   return (
     <div className='p-2 flex shadow-sm flex justify-between items-center'>
-      <img className='logo' src='/logo.svg' />
+      <img onClick={() => navigate('/')} className='logo' src='/logo.svg' />
       <div>
         {!!user ?
         <div className='flex items-center gap-3'>
@@ -64,7 +64,7 @@ function Header() {
               <h2 className='cursor-pointer' onClick={() => {
                 googleLogout()
                 localStorage.clear()
-                window.location.reload()
+                navigate('/')
               }}>Logout</h2>
             </PopoverContent>
           </Popover>
