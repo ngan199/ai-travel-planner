@@ -1,0 +1,5 @@
+export {default as Footer} from './Footer'
+export {default as Hotels} from './Hotels'
+export {default as InforSection} from './InforSection'
+export {default as PlaceCardItem} from './PlaceCardItem'
+export {default as PlacesToVisit} from './PlacesToVisit'
