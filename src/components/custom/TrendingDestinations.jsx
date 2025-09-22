@@ -4,11 +4,6 @@ import { Button } from '../ui/button';
 
 const destinations = [
   {
-    name: "Bali, Indonesia",
-    image: "/bali.webp",
-    description: "Tropical paradise with stunning beaches and cultural wonders.",
-  },
-  {
     name: "Paris, France",
     image: "/paris.jpg",
     description: "The city of love, rich in history, fashion, and fine dining.",

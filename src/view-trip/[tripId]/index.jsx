@@ -27,7 +27,7 @@ function Viewtrip() {
     }
   };
 
-
+  
   const fetchAllImages = async (tripData) => {
     const locations = [tripData?.userSelection?.location?.label];
     const hotels = tripData?.tripData?.hotelOptions?.map(h => h.hotelName) || [];

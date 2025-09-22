@@ -1,60 +1,80 @@
 import React, { useEffect, useState } from 'react'
 import { Button } from '../ui/button'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { googleLogout } from '@react-oauth/google'
 import { useGoogleLogin } from '@react-oauth/google';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader } from "@/components/ui/dialog"
 import { FcGoogle } from "react-icons/fc";
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Moon, Sun } from "lucide-react";
 
-
 function Header() {
-  const user = JSON.parse(localStorage.getItem('user'))
+  // ★ keep user in state so header re-renders
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
+  });
+
   const [openDialog, setOpenDialog] = useState(false)
   const [darkMode, setDarkMode] = useState(false);
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    if (darkMode) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
   }, [darkMode]);
 
+  // ★ listen for "open-signin" from Hero to open dialog
+  useEffect(() => {
+    const openSignin = () => setOpenDialog(true);
+    window.addEventListener('open-signin', openSignin);
+    return () => window.removeEventListener('open-signin', openSignin);
+  }, []);
+
+  // ★ keep in sync if 'user' changes in other tabs
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'user') {
+        try { setUser(e.newValue ? JSON.parse(e.newValue) : null); }
+        catch { setUser(null); }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const login = useGoogleLogin({
-    onSuccess: (codeResp) => {
-      GetUserProfile(codeResp)
-    },
+    onSuccess: (codeResp) => { GetUserProfile(codeResp) },
     onError: (error) => console.log('error', error)
-  })
+  });
 
   const GetUserProfile = (tokenInfo) => {
-    axios.get(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokenInfo?.access_token}`,{
-      headers:{
-        Authorization: `Bearer ${tokenInfo?.access_token}`,
-        Accept: 'Application/json'
-      }
-    }).then((res) => {
-      setOpenDialog(false)
-      localStorage.setItem('user', JSON.stringify(res.data))
-      navigate('/')
-    }).catch(function (error) {
-      console.log("erorr??", error.toJSON());
+    axios.get(
+      `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokenInfo?.access_token}`,
+      { headers:{ Authorization: `Bearer ${tokenInfo?.access_token}`, Accept: 'Application/json' } }
+    ).then((res) => {
+      setOpenDialog(false);
+      localStorage.setItem('user', JSON.stringify(res.data));
+      setUser(res.data); // ★ re-render Header immediately
+
+      // ★ notify other components in SAME tab
+      window.dispatchEvent(new Event('auth-changed'));
+
+      navigate('/');
+    }).catch((error) => {
+      console.log("error??", error?.toJSON?.() ?? error);
     });
+  }
+
+  const handleLogout = () => {
+    googleLogout();
+    localStorage.removeItem('user');
+    setUser(null); // ★ re-render Header immediately
+
+    // ★ notify other components in SAME tab
+    window.dispatchEvent(new Event('auth-changed'));
+
+    navigate('/');
   }
 
   return (
@@ -75,13 +95,15 @@ function Header() {
         {/* If User is Logged In */}
         {!!user ? (
           <div className="flex items-center gap-4">
-            {/* My Trips Button */}
-            <Button
-              variant="outline"
-              className="relative px-6 py-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 font-semibold tracking-wide hover:shadow-lg transform hover:scale-105 transition-all"
-            >
-              <a href="/my-trips" className='text-white font-semibold'>✨ My Trips</a>
-            </Button>
+            {/* ★ use Link (no hard reload) */}
+            <Link to="/my-trips">
+              <Button
+                variant="outline"
+                className="relative px-6 py-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 font-semibold tracking-wide hover:shadow-lg transform hover:scale-105 transition-all text-white"
+              >
+                ✨ My Trips
+              </Button>
+            </Link>
 
             {/* User Profile Dropdown */}
             <Popover>
@@ -89,22 +111,13 @@ function Header() {
                 <img className="h-10 w-10 rounded-full border border-gray-300 dark:border-gray-600 hover:scale-105 transition-transform" src={user.picture} alt="User" />
               </PopoverTrigger>
               <PopoverContent className="p-2 bg-white dark:bg-gray-800 shadow-md rounded-lg">
-                <Button
-                  variant="destructive"
-                  className="w-full"
-                  onClick={() => {
-                    googleLogout();
-                    localStorage.clear();
-                    navigate("/");
-                  }}
-                >
+                <Button variant="destructive" className="w-full" onClick={handleLogout}>
                   Logout
                 </Button>
               </PopoverContent>
             </Popover>
           </div>
         ) : (
-          // If User is Not Logged In
           <Button className="rounded-full px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white shadow-md transition-all" onClick={() => setOpenDialog(true)}>
             Sign in
           </Button>
@@ -112,11 +125,12 @@ function Header() {
       </div>
 
       {/* Sign In Dialog */}
-      <Dialog open={openDialog}>
+      {/* ★ allow closing by ESC/click-away */}
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="bg-white dark:bg-gray-900 shadow-xl rounded-lg">
           <DialogHeader>
             <DialogDescription className="flex flex-col items-center">
-              <img src="/logo.svg" alt="Logo" />
+              <img src="/logo.svg" alt="Logo" style={{ width: "350px" }} />
               <h2 className="font-bold text-lg mt-4">Sign In With Google</h2>
               <p className="text-gray-500 dark:text-gray-300">Sign in securely with Google authentication</p>
               <Button
@@ -134,6 +148,5 @@ function Header() {
     </div>
   );
 }
-
 
 export default Header
